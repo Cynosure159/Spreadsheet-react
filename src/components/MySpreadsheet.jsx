@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
 import ActiveCell from "./ActiveCell";
+import SelectRect from "./SelectRect";
 
 export default function MySpreadsheet() {
 	const [rows, setRows] = useState(6); // 行数
 	const [cols, setCols] = useState(8); // 列数
 	const [tableRows, setTableRows] = useState(6); // 行数
 	const [tableCols, setTableCols] = useState(8); // 列数
+	const [mouseDown, setMouseDown] = useState(false); // 是否按住鼠标
 	const [tableData, setTableData] = useState([
 		["", "A", "B", "C", "D", "E", "F", "G", "H"],
 		[1, "", "", "", "", "", "", "", ""],
@@ -27,6 +29,19 @@ export default function MySpreadsheet() {
 		lastCol: 0,
 		value: "",
 	}); // 选中表格后的active cell参数
+
+	const [drugSelected, setDrugSelected] = useState(false); // 是否拖拽选择
+	const [selectProps, setSelectProps] = useState({
+		width: "",
+		height: "",
+		left: "",
+		top: "",
+		rowX: 0,
+		colX: 0,
+		rowY: 0,
+		colY: 0,
+		border: false,
+	}); // 选择多个表格后的select Rect参数
 
 	const tableRef = useRef();
 
@@ -103,26 +118,164 @@ export default function MySpreadsheet() {
 
 	function clickCell(row, col) {
 		setSelected(true);
-		// console.log(
-		// 	tableRef.current.rows[row].cells[col].getClientRects()[0].x,
-		// 	tableRef.current.rows[row].cells[col].getClientRects()[0].y
-		// );
+		setDrugSelected(false);
 		setActiveProps({
 			...activeProps,
 			width: tableRef.current.rows[row].cells[col].offsetWidth + "px",
 			height: tableRef.current.rows[row].cells[col].offsetHeight + "px",
-			left:
-				tableRef.current.rows[row].cells[col].getClientRects()[0].x +
-				"px",
-			top:
-				tableRef.current.rows[row].cells[col].getClientRects()[0].y +
-				"px",
+			left: tableRef.current.rows[row].cells[col].offsetLeft + "px",
+			top: tableRef.current.rows[row].cells[col].offsetTop + "px",
 			lastRow: activeProps.row,
 			lastCol: activeProps.col,
 			value: tableRef.current.rows[row].cells[col].innerText,
 			row: row,
 			col: col,
 		}); //根据table中的具体元素位置和大小设定active cell 的位置大小
+	}
+
+	function updateActiveProps() {
+		setActiveProps({
+			...activeProps,
+			left:
+				tableRef.current.rows[activeProps.row].cells[activeProps.col]
+					.offsetLeft + "px",
+			top:
+				tableRef.current.rows[activeProps.row].cells[activeProps.col]
+					.offsetTop + "px",
+		}); // 更新位置
+	}
+
+	function handleMouseDown(e) {
+		setMouseDown(true);
+		setSelectProps({
+			...selectProps,
+			border: false,
+		});
+	}
+
+	function handleMouseUp(e) {
+		setMouseDown(false);
+		setSelectProps({
+			...selectProps,
+			border: true,
+		});
+	}
+
+	function getCellByPos(mouseX, mouseY) {
+		let ans = { x: null, y: null };
+		for (let i = 0; i <= cols; i++) {
+			if (
+				tableRef.current.rows[0].cells[i].getClientRects()[0].x <=
+					mouseX &&
+				tableRef.current.rows[0].cells[i].getClientRects()[0].x +
+					tableRef.current.rows[0].cells[i].offsetWidth >
+					mouseX
+			) {
+				ans.y = i;
+				break;
+			}
+		}
+		for (let i = 0; i <= rows; i++) {
+			if (
+				tableRef.current.rows[i].cells[0].getClientRects()[0].y <=
+					mouseY &&
+				tableRef.current.rows[i].cells[0].getClientRects()[0].y +
+					tableRef.current.rows[i].cells[0].offsetHeight >
+					mouseY
+			) {
+				ans.x = i;
+				break;
+			}
+		}
+		if (ans.x === 0) ans.x = 1;
+		if (ans.y === 0) ans.y = 1;
+		if (
+			tableRef.current.rows[0].cells[cols].getClientRects()[0].x +
+				tableRef.current.rows[0].cells[cols].offsetWidth <=
+			mouseX
+		) {
+			ans.y = cols;
+		}
+		if (
+			tableRef.current.rows[rows].cells[0].getClientRects()[0].y +
+				tableRef.current.rows[rows].cells[0].offsetHeight <=
+			mouseY
+		) {
+			ans.x = rows;
+		}
+		return ans;
+	}
+
+	function updateSelectProps(x1, x2, y1, y2) {
+		// 计算左上右下坐标
+		let rowX,
+			rowY,
+			colX,
+			colY,
+			width = 0,
+			height = 0;
+		if (x1 < x2) {
+			rowX = x1;
+			rowY = x2;
+		} else {
+			rowX = x2;
+			rowY = x1;
+		}
+		if (y1 < y2) {
+			colX = y1;
+			colY = y2;
+		} else {
+			colX = y2;
+			colY = y1;
+		}
+
+		// 计算大小
+		for (let i = colX; i <= colY; i++) {
+			width += tableRef.current.rows[0].cells[i].offsetWidth;
+		}
+		for (let i = rowX; i <= rowY; i++) {
+			height += tableRef.current.rows[i].cells[0].offsetHeight;
+		}
+
+		if (rowX !== rowY || colX !== colY) setDrugSelected(true);
+
+		setSelectProps({
+			...selectProps,
+			rowX: rowX,
+			rowY: rowY,
+			colX: colX,
+			colY: colY,
+			height: height,
+			width: width,
+			left: tableRef.current.rows[rowX].cells[colX].offsetLeft,
+			top: tableRef.current.rows[rowX].cells[colX].offsetTop,
+		});
+	}
+
+	function handleMouseMove(e) {
+		let mouseX =
+			e.pageX ||
+			e.clientX +
+				(document.documentElement.scrollLeft ||
+					document.body.scrollLeft);
+		let mouseY =
+			e.pageY ||
+			e.clientY +
+				(document.documentElement.scrollTop || document.body.scrollTop);
+		if (mouseDown) {
+			let cellNow = getCellByPos(mouseX, mouseY);
+			// console.log(cellNow.x, cellNow.y);
+			updateSelectProps(
+				activeProps.row,
+				cellNow.x,
+				activeProps.col,
+				cellNow.y
+			);
+		}
+	}
+
+	function cancelDrug() {
+		setDrugSelected(false);
 	}
 
 	return (
@@ -161,7 +314,13 @@ export default function MySpreadsheet() {
 				</button>
 			</div>
 
-			<div className="spreadsheet-table">
+			<div
+				className="spreadsheet-table"
+				onScroll={updateActiveProps}
+				onMouseDown={handleMouseDown}
+				onMouseUp={handleMouseUp}
+				onMouseMove={handleMouseMove}
+			>
 				<table ref={tableRef}>
 					{tableData.map((item, index) => (
 						<tr key={index}>
@@ -178,7 +337,7 @@ export default function MySpreadsheet() {
 											</th>
 										) : (
 											<td
-												onClick={() =>
+												onMouseDown={() =>
 													clickCell(index, _index)
 												}
 												key={_index}
@@ -201,6 +360,15 @@ export default function MySpreadsheet() {
 					lastRow={activeProps.lastRow}
 					lastCol={activeProps.lastCol}
 					updateCallback={input}
+				/>
+
+				<SelectRect
+					hidden={!drugSelected}
+					left={selectProps.left}
+					top={selectProps.top}
+					height={selectProps.height}
+					width={selectProps.width}
+					border={selectProps.border}
 				/>
 			</div>
 		</div>
