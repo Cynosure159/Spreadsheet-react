@@ -7,11 +7,16 @@ export default function ActiveCell(props) {
 	useEffect(() => {
 		if (inputRef.current) {
 			// console.log(inputRef.current.value);
+			// console.log(props.lastRow, props.lastCol);
 			let temp = inputRef.current.value;
 			props.updateCallback(props.lastRow, props.lastCol, temp);
-		}
+		} // 若有输入则回调更新数据
 		setReadOnly(true);
-	}, [props]);
+	}, [props.left, props.top]); //当选中位置改变时
+
+	useEffect(() => {
+		setReadOnly(true);
+	}, [props.trigger]); // 触发时取消编辑模式
 
 	useEffect(() => {
 		if (inputRef.current) {
@@ -28,8 +33,9 @@ export default function ActiveCell(props) {
 				left: props.left,
 				top: props.top,
 			}}
-			onClick={() => {
-				setReadOnly(false);
+			onClick={(e) => {
+				// console.log(readOnly);
+				if (readOnly) setReadOnly(false);
 			}}
 		>
 			{readOnly ? null : (

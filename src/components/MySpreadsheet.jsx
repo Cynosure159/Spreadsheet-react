@@ -28,6 +28,7 @@ export default function MySpreadsheet() {
 		lastRow: 0,
 		lastCol: 0,
 		value: "",
+		trigger: false, // 一个触发属性，用来取消编辑模式
 	}); // 选中表格后的active cell参数
 
 	const [drugSelected, setDrugSelected] = useState(false); // 是否拖拽选择
@@ -274,44 +275,131 @@ export default function MySpreadsheet() {
 		}
 	}
 
-	function cancelDrug() {
-		setDrugSelected(false);
+	function ascendingSort(index) {
+		// 退出编辑
+		setActiveProps({
+			...activeProps,
+			trigger: !activeProps.trigger,
+		});
+
+		let temp = tableData.slice(1, tableData.length);
+		temp.sort((a, b) => {
+			let x = Number(a[index]);
+			let y = Number(b[index]);
+			if (isNaN(x)) return 1;
+			if (isNaN(y)) return -1;
+			return x - y;
+		});
+		let topEmp = 0;
+		// console.log(temp[topEmp][activeProps.col]);
+		while (topEmp + 1 < tableData.length && temp[topEmp][index] === "")
+			topEmp++;
+		let temp1 = temp.splice(topEmp, temp.length - topEmp);
+		temp = temp1.concat(temp);
+		for (let i = 0; i < temp.length; i++) {
+			temp[i][0] = i + 1;
+		}
+		setTableData(tableData.slice(0, 1).concat(temp));
+	}
+
+	function descendingSort(index) {
+		// 退出编辑
+		setActiveProps({
+			...activeProps,
+			trigger: !activeProps.trigger,
+		});
+		let temp = tableData.slice(1, tableData.length);
+		temp.sort((a, b) => {
+			let x = Number(a[index]);
+			let y = Number(b[index]);
+			if (isNaN(x)) return 1;
+			if (isNaN(y)) return -1;
+			return y - x;
+		});
+		let topNum = 0;
+		// console.log(temp[topEmp][activeProps.col]);
+		while (topNum + 1 < tableData.length && temp[topNum][index] !== "")
+			topNum++;
+		let topEmp = topNum;
+		while (topEmp + 1 < tableData.length && temp[topEmp][index] === "")
+			topEmp++;
+		let temp1 = temp.splice(topNum, topEmp - topNum);
+		temp = temp.concat(temp1);
+		for (let i = 0; i < temp.length; i++) {
+			temp[i][0] = i + 1;
+		}
+		setTableData(tableData.slice(0, 1).concat(temp));
 	}
 
 	return (
 		<div className="spreadsheet">
 			<div className="spreadsheet-control">
-				<span>行数：</span>
-				<input
-					type="number"
-					value={rows}
-					min="4"
-					max="50"
-					onChange={(e) => {
-						setRows(Number(e.target.value));
-						// resizeRows(Number(e.target.value));
-					}}
-					style={{ marginRight: "10px" }}
-				/>
-				<span>列数：</span>
-				<input
-					type="number"
-					value={cols}
-					min="4"
-					max="26"
-					onChange={(e) => {
-						setCols(Number(e.target.value));
-						// resizeCols(Number(e.target.value));
-					}}
-					style={{ marginRight: "10px" }}
-				/>
-				<button
-					onClick={() => {
-						resize();
-					}}
-				>
-					更改
-				</button>
+				<div>
+					<span>行数：</span>
+					<input
+						type="number"
+						value={rows}
+						min="4"
+						max="50"
+						onChange={(e) => {
+							setRows(Number(e.target.value));
+							// resizeRows(Number(e.target.value));
+						}}
+						style={{ marginRight: "10px" }}
+					/>
+					<span>列数：</span>
+					<input
+						type="number"
+						value={cols}
+						min="4"
+						max="26"
+						onChange={(e) => {
+							setCols(Number(e.target.value));
+							// resizeCols(Number(e.target.value));
+						}}
+						style={{ marginRight: "10px" }}
+					/>
+					<button
+						onClick={() => {
+							resize();
+						}}
+					>
+						更改
+					</button>
+				</div>
+				<div style={{ marginTop: "10px" }}>
+					<span>排序：</span>
+					{/* <input
+						type="number"
+						value={rows}
+						min="4"
+						max="50"
+						onChange={(e) => {
+							setRows(Number(e.target.value));
+							// resizeRows(Number(e.target.value));
+						}}
+						style={{ marginRight: "10px" }}
+					/>
+					<span style={{ marginRight: "10px" }}>列</span> */}
+					<button
+						style={{ marginRight: "10px" }}
+						onClick={() => {
+							if (activeProps.col > 0)
+								ascendingSort(activeProps.col);
+						}}
+					>
+						升序
+					</button>
+					<button
+						style={{ marginRight: "10px" }}
+						onClick={() => {
+							if (activeProps.col > 0)
+								descendingSort(activeProps.col);
+						}}
+					>
+						降序
+					</button>
+				</div>
 			</div>
 
 			<div
@@ -337,9 +425,18 @@ export default function MySpreadsheet() {
 											</th>
 										) : (
 											<td
-												onMouseDown={() =>
-													clickCell(index, _index)
-												}
+												onMouseDown={() => {
+													if (
+														activeProps.row !==
+															index ||
+														activeProps.col !==
+															_index
+													)
+														clickCell(
+															index,
+															_index
+														); // 点击了新的位置
+												}}
 												key={_index}
 											>
 												{tableData[index][_index]}
@@ -359,6 +456,7 @@ export default function MySpreadsheet() {
 					value={activeProps.value}
 					lastRow={activeProps.lastRow}
 					lastCol={activeProps.lastCol}
+					trigger={activeProps.trigger}
 					updateCallback={input}
 				/>
 
